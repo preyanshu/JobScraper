@@ -1,0 +1,1 @@
+Snip crypto tweets and automate buying/selling 
