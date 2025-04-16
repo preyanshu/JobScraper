@@ -1,0 +1,6 @@
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"active","startTime":{"$$date":1744793837132},"endTime":{"$$date":1744793897132},"_id":"QRd6nM0dA539NQCz"}
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"active","startTime":{"$$date":1744793837156},"endTime":{"$$date":1744793897156},"_id":"SVUG9Az1YTmZ7i1A"}
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"active","startTime":{"$$date":1744793853115},"endTime":{"$$date":1744793913115},"_id":"8pWP5Z22QCoN2bHa"}
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"completed","startTime":{"$$date":1744793837132},"endTime":{"$$date":1744793897132},"_id":"QRd6nM0dA539NQCz"}
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"completed","startTime":{"$$date":1744793837156},"endTime":{"$$date":1744793897156},"_id":"SVUG9Az1YTmZ7i1A"}
+{"userId":"user123","twitterHandle":"elonmusk","duration":60000,"status":"completed","startTime":{"$$date":1744793853115},"endTime":{"$$date":1744793913115},"_id":"8pWP5Z22QCoN2bHa"}

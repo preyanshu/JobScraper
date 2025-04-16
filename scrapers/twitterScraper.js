@@ -1,11 +1,9 @@
 module.exports = async function scrapeTwitter(handle) {
-    console.log(`[🔍] Scraping tweets from @${handle}...`);
+  console.log(`[🔍] Scraping tweets from @${handle}...`);
 
-    
+  // Simulate delay of 10 seconds
+  await new Promise((resolve) => setTimeout(resolve, 10000));
 
-
-    //fetch tweet  analyze it using llm   buy / seel make the traction check the job detail how much the user want to buy , if target met change the status of the job 
-
-    return [{ id: "1", text: `Fake tweet from @${handle}` }];
-  };
-  
+  // Simulated tweet data (replace this with actual scraping logic later)
+  return [{ id: "1", text: `Fake tweet from @${handle}` }];
+};

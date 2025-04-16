@@ -1,45 +1,105 @@
-const { Worker } = require("bullmq");
-const Redis = require("ioredis");
-const JobModel = require("../models/Job");
-const scrapeTwitter = require("../scrapers/twitterScraper");
-
- const connection = new Redis({
-  host: process.env.REDIS_HOST || 'localhost', 
-  port: process.env.REDIS_PORT || 6379,      
-  maxRetriesPerRequest: null                 
-});
-
-
-module.exports = connection; 
+const Queue = require('bee-queue');
+const RedisMock = require('ioredis-mock');
+const scrapeTwitter = require('../scrapers/twitterScraper');
+const { jobDB } = require('../db');
 
 const logListPrefix = "job-logs";
 
-new Worker(
-  "scrape-jobs",
-  async (job) => {
+// Use Redis mock for development and testing
+const connection = new RedisMock({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: process.env.REDIS_PORT || 6379,
+  maxRetriesPerRequest: null
+});
 
-    console.log(`[✔] Processing job for Twitter Handle: ${job.data.twitterHandle}`);
-    const { twitterHandle, jobId } = job.data;
-    
-    await connection.rpush(`${logListPrefix}:${jobId}`, `Job started at ${new Date().toISOString()} for ${twitterHandle}`);
+// Promisified helpers for NeDB
+const findById = (id) =>
+  new Promise((resolve, reject) => {
+    jobDB.findOne({ _id: id }, (err, doc) => {
+      if (err) reject(err);
+      else resolve(doc);
+    });
+  });
 
-    const jobDoc = await JobModel.findById(jobId);
-    if (!jobDoc || jobDoc.status !== "active") return;
+const updateJob = (id, updateFields) =>
+  new Promise((resolve, reject) => {
+    jobDB.update({ _id: id }, { $set: updateFields }, {}, (err, numAffected) => {
+      if (err) reject(err);
+      else resolve(numAffected);
+    });
+  });
 
-    const now = new Date();
-    if (now >= jobDoc.endTime) {
-      jobDoc.status = "completed";
-      await jobDoc.save();
-      return;
-    }
+// Initialize Bee-Queue
+const scrapeQueue = new Queue('scrape-jobs', {
+  redis: connection,
+  // Set concurrency to 5 (process up to 5 jobs in parallel)
+  concurrency: 5,
+});
 
-    const tweets = await scrapeTwitter(twitterHandle);
+// Worker to process jobs
+scrapeQueue.process(5,async (job) => {
 
-    await connection.rpush(`${logListPrefix}:${jobId}`, `[✔] ${twitterHandle}: ${tweets.length} tweet(s) scraped.`);
-    console.log(`[✔] ${twitterHandle}: ${tweets.length} tweet(s) scraped.`);
-  },
-  {
-    connection,
-    concurrency: 5,
+  console.log(job.data)
+  const { twitterHandle, jobId } = job.data;
+
+  console.log(`[✔] Processing job for Twitter Handle: ${twitterHandle}`);
+
+  // Log job started
+  await connection.rpush(
+    `${logListPrefix}:${jobId}`,
+    `Job started at ${new Date().toISOString()} for ${twitterHandle}`
+  );
+
+  // Fetch job document from NeDB
+  const jobDoc = await findById(jobId);
+  if (!jobDoc || jobDoc.status !== "active") return; // Only process active jobs
+
+  const now = new Date();
+  const endTime = new Date(jobDoc.endTime);
+
+  // Check if job's end time has passed, if so, mark as completed
+  if (now >= endTime) {
+    await updateJob(jobId, { status: "completed" });
+    console.log(`[✔] Job ${jobId} marked as completed.`);
+    return;
   }
-);
+
+  // Scrape tweets for the Twitter handle
+  const tweets = await scrapeTwitter(twitterHandle);
+
+  // Log tweet scraping status
+  await connection.rpush(
+    `${logListPrefix}:${jobId}`,
+    `[✔] ${twitterHandle}: ${tweets.length} tweet(s) scraped.`
+  );
+  console.log(`[✔] ${twitterHandle}: ${tweets.length} tweet(s) scraped.`);
+
+
+  try {
+    const delay = 1000;
+
+    setTimeout(async () => {
+      try {
+        await scrapeQueue.createJob({ twitterHandle, jobId }).save();
+        console.log("✅ Re-added job to queue with delay");
+      } catch (err) {
+        console.error("❌ Failed to re-add job to queue:", err);
+      }
+    }, delay);
+  
+    console.log("✅ Job re-added to queue with delay");
+  } catch (err) {
+    console.error("❌ Failed to re-add job to queue:", err);
+  }
+
+});
+
+// Function to add jobs to the queue (example)
+const addJobToQueue = async (twitterHandle, jobId) => {
+  await scrapeQueue.createJob({
+    twitterHandle,
+    jobId
+  }).save();
+};
+
+module.exports = { scrapeQueue, addJobToQueue };
